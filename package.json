@@ -1,0 +1,23 @@
+{
+  "name": "pi-subagents-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.19.0" },
+  "bin": { "pi-subagents-mcp": "./pi-subagents-mcp" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "bun run build && node --test dist/*.test.js",
+    "start": "node dist/subagent-cli.js"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.0.4",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3"
+  }
+}
