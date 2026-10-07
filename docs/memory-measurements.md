@@ -63,3 +63,24 @@ The sampler included child processes; no additional child-process memory appeare
 The automated follow-up stage failed because its inspection request used a limit of 1000; the MCP limit is 500. The script released its workers during error cleanup. All ten model tasks had already finished successfully. The script limit and skill verification were corrected afterward; the follow-up stage was not completed in this run. Raw data and results are in `/tmp/pi-subagents-real-memory.json`.
 
 History checks: the SDK in-memory manager reported `isPersisted() === false` and no session file after appending messages. Pi's session listing contained 28 sessions and zero names beginning with `subagent:`. The runtime explicitly uses this in-memory manager. Service transcript logs remain under the service's separate transcript directory, not Pi's resume history.
+
+## Real twenty-worker software run
+
+The largest measurement was a real implementation workload: 20 concurrent workers (10 DeepSeek and 10 Muse) building a Go UCI chess engine in a separate repository. Each worker owned distinct files and ran real file, search, edit, and shell tools. A Python sampler read `/proc/<pid>/smaps_rollup` for the service and every descendant process every 0.5 seconds for 21 minutes.
+
+| State | RSS | PSS |
+| --- | ---: | ---: |
+| Peak, service process | 532 MiB | 479 MiB |
+| Peak, service plus child processes | 629 MiB | 563 MiB |
+| Median during the run | 334 MiB | 281 MiB |
+| After releasing 18 of 20 workers | 284 MiB | 230 MiB |
+
+The process tree held at most 11 processes, so most of the peak came from the 20 worker sessions inside the one service process, not from child processes. Subtracting the roughly 118 MiB cold baseline leaves about 21 MiB per active session, including its conversation, tool results, and event buffer. This is an estimate from one workload, not a per-worker limit.
+
+Completed workers were released during the run. React and browser processes on the same desktop used more memory than the service throughout.
+
+The run also measured write volume: one worker produced 10,107 transcript events before the 500-event memory window rolled over. Under the previous default this meant about 10,000 small file appends for that worker alone. Transcripts now default to memory mode, which removes this I/O.
+
+## Current defaults
+
+Transcripts are memory only unless `"transcripts": "disk"` is set. The terminal header shows `pss` and `cpu` for the service and its child processes every five seconds. These are Linux-only measurements from `/proc`; on other platforms the header omits them.
