@@ -28,7 +28,7 @@ The service binds to localhost. Clients connected to the service share its worke
 
 ## Terminal controls
 
-Use `j`/`k` or the arrow keys to select a worker. Press Enter to open its output and Escape to return to the worker list. In the output view, `j`/`k` scroll and `g`/`G` jump to the start or end. Press `q` or Ctrl-C to shut down the service. The view shows turns, tool activity, model/thinking, elapsed time, token usage, and context usage where available.
+Use `j`/`k` or the arrow keys to select a worker. Press Enter to open its output and Escape to return to the worker list. In the output view, `j`/`k` scroll and `g`/`G` jump to the start or end. Press `q` to request shutdown, then `y` to confirm. Press `n`, Enter, or Escape to cancel. Ctrl-C still shuts down immediately. The view shows turns, tool activity, model/thinking, elapsed time, token usage, and context usage where available.
 
 ## Global configuration
 
@@ -146,7 +146,7 @@ Waiting is driven by service events, not polling. Cancelling or timing out a wai
 
 ## Worker lifetime
 
-Ten tasks can start or run at once by default. More tasks wait in a queue. Idle workers retain their conversation until released. A stopped worker retains partial output and can receive another task. A new task uses a new generation number so results from an earlier task do not masquerade as current results.
+Ten tasks can start or run at once by default. More tasks wait in a queue. Idle workers retain their conversation in memory until released. SDK sessions use `SessionManager.inMemory`, so they do not create Pi session files or appear in `pi -r`. Service transcript logs are stored separately. A stopped worker retains partial output and can receive another task. A new task uses a new generation number so results from an earlier task do not masquerade as current results.
 
 `stop_subagents` cancels work without undoing edits. `release_subagents` rejects active workers unless `force: true` is supplied. Releasing frees the SDK session; transcripts remain on disk. Workers do not survive service restart. Transcript files can contain sensitive task content and tool output; manage their retention yourself.
 

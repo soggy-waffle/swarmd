@@ -261,6 +261,7 @@ export class SubagentTerminal {
   private workers: SubagentSnapshot[] = [];
   private selectedId: string | undefined;
   private mode: "list" | "detail" = "list";
+  private quitConfirmation = false;
   private detailScroll = 0;
   private detailMaxScroll = 0;
   private readonly transcripts = new Map<string, TranscriptState>();
@@ -450,8 +451,9 @@ export class SubagentTerminal {
     const now = Date.now();
     const content = Math.max(3, height - 1);
     const body = this.mode === "detail" ? this.buildDetailLines(width, content, now) : this.buildListLines(width, content, now);
-    const footer =
-      this.mode === "detail"
+    const footer = this.quitConfirmation
+      ? "Quit and stop all workers? [y/N] · esc cancel"
+      : this.mode === "detail"
         ? "esc back · ↑/↓ j/k scroll · g/G top/bottom · q quit"
         : "↑/↓ j/k select · enter detail · r refresh · q quit";
     const padded = body.slice(0, content);
@@ -544,6 +546,17 @@ export class SubagentTerminal {
     let index = 0;
     while (index < data.length) {
       const char = data[index];
+      if (this.quitConfirmation) {
+        this.pendingInput = "";
+        if (char === "y" || char === "Y" || char === "\x03") {
+          this.requestExit();
+        } else if (char === "n" || char === "N" || char === "\x1b" || char === "\r" || char === "\n") {
+          this.quitConfirmation = false;
+          this.dirty = true;
+          this.scheduleRender();
+        }
+        return;
+      }
       if (char === "\x1b") {
         const rest = data.slice(index);
         const known = KNOWN_SEQUENCES.find((sequence) => rest.startsWith(sequence));
@@ -560,9 +573,15 @@ export class SubagentTerminal {
       if (char === "k") this.handleUp();
       else if (char === "j") this.handleDown();
       else if (char === "\r" || char === "\n") this.handleEnter();
-      else if (char === "\x03" || char === "q") {
+      else if (char === "\x03") {
         this.pendingInput = "";
         this.requestExit();
+        return;
+      } else if (char === "q") {
+        this.pendingInput = "";
+        this.quitConfirmation = true;
+        this.dirty = true;
+        this.scheduleRender();
         return;
       } else if (char === "r") {
         this.refreshWorkers();

@@ -255,3 +255,38 @@ test("terminal catches up all retained transcript pages for an already idle work
     terminal.stop();
   }
 });
+
+test("q asks before stopping workers and n, enter, or escape cancels", () => {
+  let quitCalls = 0;
+  const { input, terminal } = startTerminal(fakeService([makeSnapshot()]), () => { quitCalls += 1; });
+  try {
+    input.emit("data", "\r");
+    for (const cancel of ["n", "N", "\r", "\x1b"]) {
+      input.emit("data", "q");
+      assert.match(terminal.buildLines(120, 24).at(-1) ?? "", /Quit and stop all workers/);
+      input.emit("data", cancel);
+      assert.equal(quitCalls, 0);
+      assert.doesNotMatch(terminal.buildLines(120, 24).at(-1) ?? "", /Quit and stop all workers/);
+      assert.match(terminal.buildLines(120, 24)[0], /alpha/);
+    }
+    input.emit("data", "qy");
+    input.emit("data", "q");
+    assert.equal(quitCalls, 0, "Pasted input or repeated q must not confirm");
+    input.emit("data", "y");
+    assert.equal(quitCalls, 1);
+  } finally {
+    terminal.stop();
+  }
+});
+
+test("Ctrl-C still exits while quit confirmation is open", () => {
+  let quit = false;
+  const { input, terminal } = startTerminal(fakeService([]), () => { quit = true; });
+  try {
+    input.emit("data", "q");
+    input.emit("data", "\x03");
+    assert.equal(quit, true);
+  } finally {
+    terminal.stop();
+  }
+});

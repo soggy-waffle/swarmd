@@ -47,3 +47,19 @@ This Linux-only check uses `/proc/self/smaps_rollup`. It needs the installed FFF
 Raw samples from the final run: `/tmp/pi-subagents-memory-fixed.json`.
 
 Large repositories, long conversations, large tool results, and additional plugins can increase memory use. These results measure a small-workspace mock workload, not a full-context production run.
+
+## Real DeepSeek and Muse run
+
+Ten real workers (five per model) completed read-only source inspections in about 40 seconds. Each worker read the Ponytail skill through the real `read` tool; this was verified from the saved tool-result events. Supported thinking levels were accepted and unsupported DeepSeek `xhigh` and Muse `max` changes were rejected.
+
+| State | RSS | PSS |
+| --- | ---: | ---: |
+| Service before real workers | 118 MiB | 72 MiB |
+| Peak sampled during real work | 288 MiB | 233 MiB |
+| Later observation after release | 223 MiB | 169 MiB |
+
+The sampler included child processes; no additional child-process memory appeared in the sampled peak. No forced GC was used. These are separate observations from the mock run, not a controlled model-to-model comparison.
+
+The automated follow-up stage failed because its inspection request used a limit of 1000; the MCP limit is 500. The script released its workers during error cleanup. All ten model tasks had already finished successfully. The script limit and skill verification were corrected afterward; the follow-up stage was not completed in this run. Raw data and results are in `/tmp/pi-subagents-real-memory.json`.
+
+History checks: the SDK in-memory manager reported `isPersisted() === false` and no session file after appending messages. Pi's session listing contained 28 sessions and zero names beginning with `subagent:`. The runtime explicitly uses this in-memory manager. Service transcript logs remain under the service's separate transcript directory, not Pi's resume history.
