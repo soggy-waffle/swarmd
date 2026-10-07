@@ -143,7 +143,7 @@ async function makeFixture(options: {
   factory?: () => PiSessionFactory;
   transcripts?: "memory" | "disk";
 }): Promise<Fixture> {
-  const base = await mkdtemp(join(tmpdir(), "pi-subagents-svc-"));
+  const base = await mkdtemp(join(tmpdir(), "swarmd-svc-"));
   const agentsDir = join(base, "agents");
   const skillsDir = join(base, "skills");
   const piAgentDir = join(base, "pi");

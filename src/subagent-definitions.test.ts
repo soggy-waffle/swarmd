@@ -64,7 +64,7 @@ test("parseAgentFile rejects unknown fields, bad model, bad thinking, empty body
 });
 
 test("loadAgentDefinitions reads a directory and resolveAgentDefinition pins models", async () => {
-  const base = await mkdtemp(join(tmpdir(), "pi-subagents-defs-"));
+  const base = await mkdtemp(join(tmpdir(), "swarmd-defs-"));
   try {
     await writeFile(join(base, "b.md"), VALID);
     await writeFile(join(base, "a.md"), VALID.replace("alpha", "a").replace("test-provider/thinker", "p/m"));
@@ -101,8 +101,8 @@ test("thinking helpers reflect real model metadata", () => {
 });
 
 test("loadAgentDefinitions surfaces unreadable directories", async () => {
-  await assert.rejects(loadAgentDefinitions(join(tmpdir(), "pi-subagents-missing-dir")), /Cannot read agents directory/);
-  const base = await mkdtemp(join(tmpdir(), "pi-subagents-defs-"));
+  await assert.rejects(loadAgentDefinitions(join(tmpdir(), "swarmd-missing-dir")), /Cannot read agents directory/);
+  const base = await mkdtemp(join(tmpdir(), "swarmd-defs-"));
   try {
     await mkdir(join(base, "sub"), { recursive: true });
     const empty = await loadAgentDefinitions(base);

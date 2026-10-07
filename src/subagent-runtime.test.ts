@@ -79,14 +79,14 @@ test("usageOfMessage accumulates provider usage and cost totals", () => {
 test("extension canonical names cover files, index shims, and package short names", async () => {
   assert.equal(extensionCanonicalName("/x/rename.ts"), "rename");
   assert.equal(extensionCanonicalName("/x/my-ext/index.ts"), "my-ext");
-  const base = await mkdtemp(join(tmpdir(), "pi-subagents-ext-"));
+  const base = await mkdtemp(join(tmpdir(), "swarmd-ext-"));
   try {
-    const pkgDir = join(base, "node_modules", "@scope", "pi-subagents");
+    const pkgDir = join(base, "node_modules", "@scope", "swarmd");
     await mkdir(join(pkgDir, "src"), { recursive: true });
     const entry = join(pkgDir, "src", "index.ts");
     await writeFile(entry, "export default function() {}");
-    await writeFile(join(pkgDir, "package.json"), JSON.stringify({ name: "@scope/pi-subagents", pi: { extensions: ["./src/index.ts"] } }));
-    assert.deepEqual(extensionNamesForPath(entry), ["src", "pi-subagents"]);
+    await writeFile(join(pkgDir, "package.json"), JSON.stringify({ name: "@scope/swarmd", pi: { extensions: ["./src/index.ts"] } }));
+    assert.deepEqual(extensionNamesForPath(entry), ["src", "swarmd"]);
   } finally {
     await rm(base, { recursive: true, force: true });
   }
@@ -94,7 +94,7 @@ test("extension canonical names cover files, index shims, and package short name
 
 test("filterDeniedExtensions matches names case-insensitively and drops builtins", () => {
   const paths = ["/ext/rename.ts", "/ext/MCP.ts", "/ext/fff.ts", "builtin:codemode"];
-  const { allowed, denied } = filterDeniedExtensions(paths, ["pi-subagents", "mcp"]);
+  const { allowed, denied } = filterDeniedExtensions(paths, ["swarmd", "mcp"]);
   assert.deepEqual(allowed, ["/ext/rename.ts", "/ext/fff.ts"]);
   assert.deepEqual(denied, ["/ext/MCP.ts", "builtin:codemode"]);
 });

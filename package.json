@@ -1,14 +1,17 @@
 {
-  "name": "pi-subagents-mcp",
+  "name": "swarmd",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=22.19.0" },
-  "bin": { "pi-subagents-mcp": "./pi-subagents-mcp" },
+  "bin": { "swarmd": "./swarmd" },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:binary": "bun build --compile --outfile dist/swarmd src/subagent-cli.ts",
+    "install:local": "bun run build:binary && mkdir -p \"$HOME/.config/swarmd\" && cp dist/swarmd \"$HOME/.config/swarmd/swarmd\"",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "bun run build && node --test --test-timeout=15000 dist/*.test.js",
+    "test:binary": "node test/smoke-binary.mjs dist/swarmd",
     "start": "node dist/subagent-cli.js"
   },
   "dependencies": {

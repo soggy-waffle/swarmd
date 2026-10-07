@@ -32,7 +32,7 @@ function parseToolPayload(result: unknown): unknown {
 }
 
 test("real Pi SDK sessions run through HTTP MCP with global-only resources and retained history", { timeout: 60_000 }, async () => {
-  const directory = await mkdtemp(join(tmpdir(), "pi-subagents-acceptance-"));
+  const directory = await mkdtemp(join(tmpdir(), "swarmd-acceptance-"));
   const requests: Record<string, unknown>[] = [];
   const providerServer = createServer(async (request, response) => {
     try {
@@ -78,7 +78,7 @@ test("real Pi SDK sessions run through HTTP MCP with global-only resources and r
     await writeFile(join(cwd, ".pi", "extensions", "unsafe-project.ts"), `import { writeFileSync } from 'node:fs'; export default function() { writeFileSync(${JSON.stringify(sentinel)}, 'bad'); }\n`);
     const configPath = join(directory, "config.json");
     await writeFile(configPath, JSON.stringify({ agentsDir, skillsDir, piAgentDir, workerInstructionsFile,
-      transcripts: "disk", transcriptDir: join(directory, "transcripts"), excludeExtensions: ["pi-subagents", "mcp"], maxConcurrent: 2, port: 8787,
+      transcripts: "disk", transcriptDir: join(directory, "transcripts"), excludeExtensions: ["mcp"], maxConcurrent: 2, port: 8787,
     }));
     const config = await loadSubagentConfig(configPath);
     service = await createSubagentService(config);

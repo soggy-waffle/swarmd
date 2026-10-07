@@ -1,64 +1,101 @@
-# Pi subagents MCP
+# swarmd
 
-A manually started Node service for Pi SDK workers. Claude Code, Pi, and other MCP clients use the same worker pool through Streamable HTTP. The service shows workers in the terminal. It does not require tmux pane markers, a browser, or a parent model inside the service.
+A single-binary MCP service that owns a shared pool of Pi worker sessions. Claude Code, Pi, and other MCP clients connect over Streamable HTTP and share the same workers. The service draws a live terminal view. It needs no tmux, no browser, and no parent model of its own.
 
-## Install and start
+## Install
 
-Requires Node 22.19 or newer. Bun is used for package installation, not as the runtime.
-
-For a new installation, copy the examples without replacing existing files, then adjust their paths and model IDs:
+Build from source. Requires [Bun](https://bun.sh) for building only; the shipped binary embeds its own runtime.
 
 ```sh
-mkdir -p ~/.config/pi-subagents-mcp/agents
-cp -n examples/config.json examples/SUBAGENT_INSTRUCTIONS.md ~/.config/pi-subagents-mcp/
-cp -n examples/agents/*.md ~/.config/pi-subagents-mcp/agents/
-```
-
-If you use `XDG_CONFIG_HOME`, use that directory and update the paths in the example configuration.
-
-```sh
+git clone git@github.com:PS-Wizard/swarmd.git ~/swarmd
+cd ~/swarmd
 bun install
-bun run build
-./pi-subagents-mcp --port 8787
+bun run install:local
 ```
 
-The MCP endpoint is `http://127.0.0.1:8787/mcp`. Keep the service running in a terminal or tmux pane. Use `--help` for options and `--no-ui` for plain terminal output.
+`install:local` builds the binary and copies it to `~/.config/swarmd/swarmd`. Add the launcher to your PATH once:
 
-The service binds to localhost. Clients connected to the service share its worker pool and can control its workers. Do not expose the port to an untrusted network. Workers are not sandboxed: file tools and shell commands have your user's permissions. The concurrency limit is not a security boundary.
+```sh
+mkdir -p ~/.local/bin
+ln -sfn ~/.config/swarmd/swarmd ~/.local/bin/swarmd
+```
+
+Then copy the templates and edit them:
+
+```sh
+cp -n ~/.config/swarmd/templates/config.json ~/.config/swarmd/
+cp -n ~/.config/swarmd/templates/SUBAGENT_INSTRUCTIONS.md ~/.config/swarmd/
+cp -n ~/.config/swarmd/templates/agents/*.md ~/.config/swarmd/agents/
+```
+
+Adjust `model` lines in the agent files to models you have credentials for.
+
+## Run
+
+```sh
+swarmd
+```
+
+The MCP endpoint is `http://127.0.0.1:8787/mcp`. Keep it running in a terminal or tmux pane. `swarmd --help` lists the options, and `--no-ui` logs lifecycle events to stderr instead of drawing the view.
+
+The binary reads its configuration, agent files, and instructions from disk at startup, so you can edit them without rebuilding. Only code changes need a rebuild.
+
+On Linux, the header shows live memory and CPU for the service and its child processes, refreshed every five seconds. `pss` counts shared pages once, and `cpu` is whole-tree CPU where 100% is one busy core. Other platforms omit both.
+
+The service binds to localhost. Every connected client can control every worker, so do not expose the port to an untrusted network. Workers are not sandboxed: their file tools and shell commands run with your permissions. The concurrency limit is not a security boundary.
+
+## Layout
+
+```
+~/.config/swarmd/
+  swarmd                        the binary
+  config.json                   service configuration
+  agents/*.md                   worker definitions
+  SUBAGENT_INSTRUCTIONS.md      instructions shared by all workers
+  templates/                    starting-point copies
+~/.local/bin/swarmd             launcher
+~/.agents/skills/               skills, in the Agent Skills standard location
+```
+
+Skills live outside this tool on purpose. Pi reads `~/.agents/skills/` natively, so the same skill files serve Pi sessions and swarmd workers, and neither one owns them.
 
 ## Terminal controls
 
-Use `j`/`k` or the arrow keys to select a worker. Press Enter to open its output and Escape to return to the worker list. In the output view, `j`/`k` scroll and `g`/`G` jump to the start or end, and the task prompt given by the MCP caller stays pinned at the top. Press `q` to request shutdown, then `y` to confirm. Press `n`, Enter, or Escape to cancel. Ctrl-C still shuts down immediately. The view shows turns, tool activity, model/thinking, elapsed time, token usage, and context usage where available. The header shows live memory and CPU for the service and its child processes, refreshed every five seconds: `pss` is proportional set size so shared pages count once, and `cpu` is whole-tree process CPU where 100% is one busy core. Both need Linux `/proc` and are omitted elsewhere.
+Use `j`/`k` or the arrow keys to select a worker. Press Enter to open its output and Escape to return to the list. In the output view, `j`/`k` scroll and `g`/`G` jump to the start or end, and the task prompt given by the MCP caller stays pinned at the top. Press `q` to request shutdown, then `y` to confirm. Press `n`, Enter, or Escape to cancel. Ctrl-C shuts down immediately.
 
-## Global configuration
+The list shows state, activity, model, thinking level, elapsed time, token usage, and context usage where available.
 
-Default configuration: `~/.config/pi-subagents-mcp/config.json`. The default location follows `XDG_CONFIG_HOME` when set. There are no project configuration overrides. Use `--config /path/to/config.json` to select another global configuration file.
+## Configuration
+
+Default path: `~/.config/swarmd/config.json`, or `$XDG_CONFIG_HOME/swarmd/config.json` when that variable is set. There are no project-level overrides. Use `--config /path/to/config.json` to point at another file.
 
 ```json
 {
-  "agentsDir": "~/.config/pi-subagents-mcp/agents",
-  "skillsDir": "~/.config/pi/skills",
-  "workerInstructionsFile": "~/.config/pi-subagents-mcp/SUBAGENT_INSTRUCTIONS.md",
+  "agentsDir": "~/.config/swarmd/agents",
+  "skillsDir": "~/.agents/skills",
+  "workerInstructionsFile": "~/.config/swarmd/SUBAGENT_INSTRUCTIONS.md",
   "piAgentDir": "~/.config/pi",
-  "excludeExtensions": ["pi-subagents", "mcp"],
+  "excludeExtensions": ["mcp"],
   "port": 8787,
   "maxConcurrent": 20,
   "transcripts": "memory",
-  "transcriptDir": "~/.config/pi-subagents-mcp/transcripts"
+  "transcriptDir": "~/.config/swarmd/transcripts"
 }
 ```
 
-`transcripts` sets where streamed events are kept. `"memory"` (the default) keeps them only inside the service process and writes nothing to disk. `"disk"` appends one JSONL file per worker under `transcriptDir` for debugging. Memory mode removes per-chunk file I/O; the live terminal view and `inspect_subagent` work in both modes.
+`piAgentDir` selects the installed Pi resources, provider configuration, credentials, and extensions that workers load. Keep credentials out of this repository.
 
-`piAgentDir` selects installed Pi resources, provider configuration, and credentials. Keep credentials out of this repository. `agentsDir` and `skillsDir` are separate configurable directories, and can point to shared directories or symlinks.
+`transcripts` sets where streamed events go. `"memory"` is the default and writes nothing to disk. `"disk"` appends one JSONL file per worker under `transcriptDir` for debugging, at the cost of a file write per streamed chunk. The terminal view and `inspect_subagent` work in both modes.
 
-Restart the service after changing configuration, installed extensions, or shared worker instructions. Agent definitions reload without a restart.
+`excludeExtensions` skips named extensions. Worker-side MCP is excluded by default so workers cannot call MCP servers.
 
-The working directory supplied for a task selects where tools operate. It does not enable configuration, agent, skill, extension, or `AGENTS.md` discovery from that project.
+Restart the service after changing configuration, installed extensions, or shared instructions. Agent definitions reload on each list or spawn, so those need no restart.
+
+The `cwd` given to a task selects where tools operate. It does not enable configuration, agent, skill, extension, or `AGENTS.md` discovery from that project.
 
 ## Agent definitions
 
-Add Markdown files to `agentsDir`. The filename is the agent name. Definitions reload when agents are listed or tasks are spawned.
+Add a Markdown file to `agentsDir`. The filename is the agent name.
 
 ```markdown
 ---
@@ -71,37 +108,35 @@ You are an implementation worker. Inspect the relevant code, make the smallest
 correct change, and validate it with focused tests. Report changed files and blockers.
 ```
 
-`description` helps the caller select an agent. The body gives instructions to the worker. `model` is pinned by the definition. `thinking` is optional and can be changed through MCP.
+`description` helps the caller pick an agent. The body instructs the worker. `model` is pinned by the definition. `thinking` is optional and can also be set per task or later through MCP; unsupported levels are rejected.
 
-Common worker instructions come from `workerInstructionsFile`. Parent conversations and `AGENTS.md` files are not inherited. Skills are advertised by name, description, and path; workers read full skill instructions when needed.
+Workers receive the shared instructions plus the agent body. They do not inherit the parent conversation or any project `AGENTS.md`. Skills are advertised by name, description, and path, and workers read the full instructions only when a task calls for them.
 
-Installed extensions are enabled unless excluded. Codemode is enabled explicitly. Worker-side MCP and pi-subagents are excluded by default. UI-dependent extensions do not get an interactive Pi terminal. Inspect reported load errors if a plugin cannot work headlessly.
-
-Agent instructions replace the parent role, and turns are unlimited. Legacy `prompt_mode: replace` and `max_turns: 0` fields can be accepted; other agent settings are not silently inherited from pi-subagents.
+Installed extensions load unless excluded. Extensions that need an interactive Pi terminal will not work headlessly; the service records their load errors, which `inspect_subagent` returns as `extension_error` events.
 
 ## MCP client setup
 
-Use a Streamable HTTP server entry. For Claude Code:
+Claude Code:
 
 ```sh
-claude mcp add --transport http --scope user pi-workers http://127.0.0.1:8787/mcp
+claude mcp add --transport http --scope user swarmd http://127.0.0.1:8787/mcp
 ```
 
-For Pi, add a server to the Pi MCP configuration:
+Pi, in `~/.config/pi/mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "pi-workers": {
+    "swarmd": {
       "url": "http://127.0.0.1:8787/mcp",
-      "exposure": "direct",
+      "exposure": "codemode",
       "timeout": 600
     }
   }
 }
 ```
 
-Other clients may require `"type": "http"` or `"type": "streamable-http"`. Configure client request timeouts for long waiting calls. The service does not modify your client configuration.
+Other clients may want `"type": "http"` or `"type": "streamable-http"`. Set a client request timeout long enough for heavy waiting calls. The service never edits your client configuration.
 
 ## Tools
 
@@ -110,7 +145,7 @@ Other clients may require `"type": "http"` or `"type": "streamable-http"`. Confi
 | `list_agents` | Read definitions, models, and thinking levels |
 | `spawn_subagents` | Queue one or several tasks and return IDs immediately |
 | `list_subagents` | Read worker states, activity, turns, usage, and context |
-| `inspect_subagent` | Read a worker and paginated transcript events |
+| `inspect_subagent` | Read one worker and a page of transcript events |
 | `send_subagent` | Steer active work or submit another task to an idle worker |
 | `configure_subagent` | Set thinking for subsequent requests |
 | `stop_subagents` | Cancel selected work while retaining workers |
@@ -118,7 +153,7 @@ Other clients may require `"type": "http"` or `"type": "streamable-http"`. Confi
 | `get_subagent_results` | Fetch available results immediately |
 | `release_subagents` | Dispose selected workers and free session resources |
 
-Example spawn arguments:
+Spawn:
 
 ```json
 {
@@ -133,7 +168,7 @@ Example spawn arguments:
 }
 ```
 
-Example wait arguments:
+Wait:
 
 ```json
 {
@@ -143,44 +178,42 @@ Example wait arguments:
 }
 ```
 
-With one ID, `any` and `all` have the same effect. With several IDs, `any` returns once at least one selected task is terminal. Already finished tasks return immediately. Use the remaining IDs for the next wait. Stopped and failed tasks count as finished, with their actual status.
+With one ID, `any` and `all` behave the same. With several, `any` returns once at least one task is terminal. Already finished tasks return immediately, so pass the remaining IDs to the next wait. Stopped and failed tasks count as finished and carry their real status.
 
-Waiting is driven by service events, not polling. Cancelling or timing out a wait does not stop workers. There is no client-independent automatic parent wake-up: a caller receives results through waiting or retrieval tools. Terminal updates do not consume model tokens.
+`timeoutSeconds` is optional and capped at 3600. Omitting it means the wait has no deadline and settles only on a state change, cancellation, or release. A timed-out wait returns `timedOut: true` and leaves workers running.
+
+Waiting is event-driven, not polling. Cancelling or timing out a wait does not stop workers. Nothing wakes the calling agent on its own: a caller learns results through a wait or a retrieval call. Terminal updates cost no model tokens.
 
 ## Worker lifetime
 
-Ten tasks can start or run at once by default. More tasks wait in a queue. Idle workers retain their conversation in memory until released. SDK sessions use `SessionManager.inMemory`, so they do not create Pi session files or appear in `pi -r`. Service transcript logs are stored separately. A stopped worker retains partial output and can receive another task. A new task uses a new generation number so results from an earlier task do not masquerade as current results.
+`maxConcurrent` tasks start or run at once; the rest queue. Idle workers keep their conversation in memory until released. SDK sessions use `SessionManager.inMemory`, so they create no Pi session files and never appear in `pi -r`.
 
-`stop_subagents` cancels work without undoing edits. `release_subagents` rejects active workers unless `force: true` is supplied. Releasing frees the SDK session. In disk mode, transcript files remain; in memory mode the transcript is gone. Workers do not survive service restart. In disk mode, transcript files can contain sensitive task content and tool output; manage their retention yourself.
+`stop_subagents` cancels work without undoing edits. `release_subagents` rejects active workers unless `force: true`. Releasing frees the SDK session. Workers do not survive a service restart or, in memory mode, leave a transcript behind.
 
-Workers share the working directory. There are no automatic file locks or Git worktrees. Divide write tasks by file ownership to avoid conflicts.
+Workers share the working directory. There are no file locks or Git worktrees, so divide write tasks by file ownership to avoid conflicts.
 
-Token usage reports input, output, cache reads, and cache writes separately. Context usage is an estimate when Pi supplies it, not a count of all lifetime tokens. Supported thinking levels depend on model metadata.
+Token usage reports input, output, cache reads, and cache writes separately. Context usage is an estimate when Pi supplies it, not a lifetime total. A worker's available thinking levels come from its model metadata.
+
+## Memory
+
+Measured on this machine with a real 20-worker implementation task, all workers in one process:
+
+| State | PSS |
+| --- | ---: |
+| Idle service | ~104 MiB |
+| 20 active workers, peak | ~479 MiB |
+
+That is roughly 21 MiB per active session above the idle baseline. Released workers free their live heap, but process RSS does not return to the idle level because the allocator keeps pages. Transcripts default to memory mode partly because one 20-worker run produced over 10,000 streamed events per busy worker.
 
 ## Development
 
 ```sh
-bun run check
-bun run test
+bun run check          # type check
+bun run test           # unit and integration tests, no paid model calls
+bun run build:binary   # compile the single binary into dist/swarmd
+bun run test:binary    # run the compiled binary against a local mock model
 ```
 
-Tests use fake worker sessions and local MCP clients. They do not require paid model calls.
+`bun run test` uses fake worker sessions and local MCP clients. `test:binary` boots the real compiled binary, checks that installed extensions load, runs one worker through MCP against a local mock model, and confirms nothing is written to disk. Neither script calls a paid API.
 
-To check your installed FFF, hashline edit, TinyFish, and codemode extensions against two concurrent worker sessions:
-
-```sh
-node scripts/smoke-installed-plugins.mjs
-```
-
-This optional check uses your global service configuration and installed extensions. It runs a local mock model server, searches and edits temporary files, and removes them afterward. It does not call paid model or search APIs. It is separate from the portable test suite because it requires those installed plugins.
-
-### Memory check
-
-On Linux, measure RSS, PSS, JavaScript heap, and buffers while running real SDK sessions with the installed plugins and a local mock model:
-
-```sh
-bun run build
-node --expose-gc scripts/measure-memory.mjs /tmp/pi-subagents-memory.json
-```
-
-The check runs batches of 1, 10, 20, 10, and 10 tasks, with a concurrency limit of 10. Each task searches, reads, edits, uses codemode, and returns approximately 64 KiB of mock output. It samples memory every 100 ms and records memory after completion, release, and test-only forced garbage collection. The process includes the mock HTTP provider. It uses small temporary workspaces; large repositories and long real conversations can use more memory.
+`test/smoke-installed-plugins.mjs` exercises your installed FFF, hashline, TinyFish, and codemode extensions with two concurrent workers, also against a local mock model.

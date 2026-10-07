@@ -285,7 +285,7 @@ export class SubagentTerminal {
     this.out = options.out ?? process.stdout;
     this.err = options.err ?? process.stderr;
     this.input = options.input ?? process.stdin;
-    this.title = options.title ?? "pi-subagents";
+    this.title = options.title ?? "swarmd";
     this.enabled = options.enabled ?? Boolean(this.out.isTTY && this.input.isTTY);
     this.maxEvents = options.maxEvents ?? 400;
     this.transcriptBatch = options.transcriptBatch ?? 100;
@@ -745,7 +745,7 @@ export class SubagentTerminal {
     if (!changes.length) return;
     for (const change of changes) {
       try {
-        this.err.write(`[pi-subagents] ${change}\n`);
+        this.err.write(`[swarmd] ${change}\n`);
       } catch {
         return;
       }

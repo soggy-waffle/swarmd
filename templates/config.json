@@ -1,0 +1,11 @@
+{
+  "agentsDir": "~/.config/swarmd/agents",
+  "skillsDir": "~/.agents/skills",
+  "workerInstructionsFile": "~/.config/swarmd/SUBAGENT_INSTRUCTIONS.md",
+  "piAgentDir": "~/.config/pi",
+  "excludeExtensions": ["mcp"],
+  "port": 8787,
+  "maxConcurrent": 20,
+  "transcripts": "memory",
+  "transcriptDir": "~/.config/swarmd/transcripts"
+}

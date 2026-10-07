@@ -217,7 +217,7 @@ export async function initWorkerRuntimeEnv(
       authPath: join(config.piAgentDir, "auth.json"),
       modelsPath: join(config.piAgentDir, "models.json"),
     }));
-  const loaderRoot = resolve(join(config.transcriptDir, "..", ".pi-subagents-loader-root"));
+  const loaderRoot = resolve(join(config.transcriptDir, "..", ".swarmd-loader-root"));
   await mkdir(loaderRoot, { recursive: true, mode: 0o700 });
   const settingsManager = SettingsManager.create(loaderRoot, config.piAgentDir);
   const packageManager = new DefaultPackageManager({

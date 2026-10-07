@@ -21,11 +21,11 @@ const KNOWN_FIELDS = new Set([
   "transcripts",
 ]);
 
-const DEFAULT_EXCLUDE = ["pi-subagents", "mcp"];
+const DEFAULT_EXCLUDE = ["mcp"];
 
 export function defaultConfigDir(): string {
   const base = process.env.XDG_CONFIG_HOME?.trim() || join(homedir(), ".config");
-  return join(base, "pi-subagents-mcp");
+  return join(base, "swarmd");
 }
 
 function expandPath(value: string, baseDir: string): string {
@@ -140,9 +140,8 @@ export async function loadSubagentConfig(
     }
   }
 
-  const skillsBase = process.env.XDG_CONFIG_HOME?.trim() || join(homedir(), ".config");
   const agentsDir = expandPath(readString(raw, file, "agentsDir") ?? join(fileDir, "agents"), fileDir);
-  const skillsDir = expandPath(readString(raw, file, "skillsDir") ?? join(skillsBase, "pi", "skills"), fileDir);
+  const skillsDir = expandPath(readString(raw, file, "skillsDir") ?? join(homedir(), ".agents", "skills"), fileDir);
   const workerInstructionsFile = expandPath(
     readString(raw, file, "workerInstructionsFile") ?? join(fileDir, "SUBAGENT_INSTRUCTIONS.md"),
     fileDir,

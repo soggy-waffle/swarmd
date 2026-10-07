@@ -13,7 +13,7 @@ dir=$(CDPATH= cd -- "$(dirname -- "$self")" && pwd -P)
 entry=$dir/dist/subagent-cli.js
 
 if [ ! -f "$entry" ]; then
-  echo "pi-subagents-mcp: $entry not found. Build first: bun install && bun run build" >&2
+  echo "swarmd: $entry not found. Build first: bun install && bun run build" >&2
   exit 1
 fi
 

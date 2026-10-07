@@ -16,7 +16,7 @@ async function makeDirs(base: string): Promise<{ agentsDir: string; skillsDir: s
 }
 
 test("defaults apply with explicit skills/agent/instruction roots", async () => {
-  const base = await mkdtemp(join(tmpdir(), "pi-subagents-config-"));
+  const base = await mkdtemp(join(tmpdir(), "swarmd-config-"));
   try {
     const dirs = await makeDirs(base);
     const configPath = join(base, "config.json");
@@ -24,7 +24,7 @@ test("defaults apply with explicit skills/agent/instruction roots", async () => 
     const config = await loadSubagentConfig(configPath);
     assert.equal(config.port, 8787);
     assert.equal(config.maxConcurrent, 10);
-    assert.deepEqual(config.excludeExtensions, ["pi-subagents", "mcp"]);
+    assert.deepEqual(config.excludeExtensions, ["mcp"]);
     assert.equal(config.agentsDir, dirs.agentsDir);
     assert.equal(config.skillsDir, dirs.skillsDir);
     assert.equal(config.piAgentDir, dirs.piAgentDir);
@@ -36,7 +36,7 @@ test("defaults apply with explicit skills/agent/instruction roots", async () => 
 });
 
 test("unknown fields and invalid values are rejected", async () => {
-  const base = await mkdtemp(join(tmpdir(), "pi-subagents-config-"));
+  const base = await mkdtemp(join(tmpdir(), "swarmd-config-"));
   try {
     await makeDirs(base);
     const configPath = join(base, "config.json");
@@ -55,7 +55,7 @@ test("unknown fields and invalid values are rejected", async () => {
 });
 
 test("missing agents/skills/instructions/piAgentDir produce actionable errors", async () => {
-  const base = await mkdtemp(join(tmpdir(), "pi-subagents-config-"));
+  const base = await mkdtemp(join(tmpdir(), "swarmd-config-"));
   try {
     const dirs = await makeDirs(base);
     const configPath = join(base, "config.json");
@@ -76,7 +76,7 @@ test("missing agents/skills/instructions/piAgentDir produce actionable errors", 
 });
 
 test("relative paths resolve against the config file dir and overrides win", async () => {
-  const base = await mkdtemp(join(tmpdir(), "pi-subagents-config-"));
+  const base = await mkdtemp(join(tmpdir(), "swarmd-config-"));
   try {
     const dirs = await makeDirs(base);
     const sub = join(base, "sub");
@@ -109,5 +109,5 @@ test("default config dir respects XDG_CONFIG_HOME", async () => {
     if (previous === undefined) delete process.env.XDG_CONFIG_HOME;
     else process.env.XDG_CONFIG_HOME = previous;
   }
-  assert.ok(defaultConfigDir().endsWith("pi-subagents-mcp"));
+  assert.ok(defaultConfigDir().endsWith("swarmd"));
 });

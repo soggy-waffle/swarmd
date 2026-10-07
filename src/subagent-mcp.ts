@@ -186,7 +186,7 @@ export interface CreateSubagentMcpServerOptions {
 }
 
 export function createSubagentMcpServer(service: SubagentWorkerService, options: CreateSubagentMcpServerOptions = {}): McpServer {
-  const server = new McpServer({ name: "pi-subagents", version: "0.1.0" });
+  const server = new McpServer({ name: "swarmd", version: "0.1.0" });
 
   server.registerTool(
     "list_agents",

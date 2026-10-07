@@ -7,13 +7,13 @@ import { startSubagentMcpServer, type SubagentMcpServerHandle } from "./subagent
 import { createSubagentService } from "./subagent-service.js";
 import { SubagentTerminal } from "./subagent-terminal.js";
 
-const HELP = `Usage: pi-subagents-mcp [options]
+const HELP = `Usage: swarmd [options]
 
 Starts a local Streamable HTTP MCP server that owns a shared pool of Pi worker sessions.
 
 Options:
   -h, --help                Show this help and exit
-      --config <path>       Global config file (default: ~/.config/pi-subagents-mcp/config.json)
+      --config <path>       Global config file (default: ~/.config/swarmd/config.json)
       --port <number>       Override the listening port (default from config, usually 8787)
       --max-concurrent <n>  Override the maximum number of concurrently running workers
       --no-ui               Do not draw the live terminal view; log lifecycle updates to stderr
@@ -108,8 +108,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   try {
     options = parseCliArgs(argv);
   } catch (error) {
-    logErr(`pi-subagents-mcp: ${errorText(error)}`);
-    logErr("Run pi-subagents-mcp --help for usage.");
+    logErr(`swarmd: ${errorText(error)}`);
+    logErr("Run swarmd --help for usage.");
     return 1;
   }
 
@@ -134,14 +134,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       try {
         await withTimeout(activeServer.close(), 4000);
       } catch (error) {
-        logErr(`pi-subagents-mcp: error closing MCP server: ${errorText(error)}`);
+        logErr(`swarmd: error closing MCP server: ${errorText(error)}`);
       }
     }
     if (activeService) {
       try {
         await withTimeout(activeService.close(), 5000);
       } catch (error) {
-        logErr(`pi-subagents-mcp: error closing worker service: ${errorText(error)}`);
+        logErr(`swarmd: error closing worker service: ${errorText(error)}`);
       }
     }
   };
@@ -156,7 +156,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   };
 
   const onSignal = (signal: NodeJS.Signals) => {
-    logErr(`pi-subagents-mcp: received ${signal}, shutting down`);
+    logErr(`swarmd: received ${signal}, shutting down`);
     void shutdown(0);
   };
   const onStdoutError = (error: NodeJS.ErrnoException) => {
@@ -189,16 +189,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       return 0;
     }
     server = await startSubagentMcpServer(created, config.port, {
-      onError: (error) => logErr(`pi-subagents-mcp: ${error.message}`),
+      onError: (error) => logErr(`swarmd: ${error.message}`),
     });
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "EADDRINUSE") {
-      logErr(`pi-subagents-mcp: port ${options.port ?? "configured"} is already in use. Stop the other process or pass --port.`);
+      logErr(`swarmd: port ${options.port ?? "configured"} is already in use. Stop the other process or pass --port.`);
     } else if (code === "EACCES") {
-      logErr("pi-subagents-mcp: permission denied while binding the port. Choose an unprivileged port with --port.");
+      logErr("swarmd: permission denied while binding the port. Choose an unprivileged port with --port.");
     } else {
-      logErr(`pi-subagents-mcp: failed to start: ${errorText(error)}`);
+      logErr(`swarmd: failed to start: ${errorText(error)}`);
     }
     await cleanup();
     removeProcessListeners();
@@ -213,20 +213,20 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
   terminal = new SubagentTerminal({
     service: service as SubagentWorkerService,
-    title: "pi-subagents",
+    title: "swarmd",
     enabled: !options.noUi && Boolean(process.stdout.isTTY && process.stdin.isTTY),
     onQuit: () => {
       void shutdown(0);
     },
   });
 
-  logErr(`pi-subagents-mcp: MCP endpoint ${(server as SubagentMcpServerHandle).url}`);
-  logErr("pi-subagents-mcp: press q in the view to stop; SIGINT/SIGTERM also shut down cleanly");
+  logErr(`swarmd: MCP endpoint ${(server as SubagentMcpServerHandle).url}`);
+  logErr("swarmd: press q in the view to stop; SIGINT/SIGTERM also shut down cleanly");
 
   try {
     terminal.start();
   } catch (error) {
-    logErr(`pi-subagents-mcp: terminal view failed, continuing without UI: ${errorText(error)}`);
+    logErr(`swarmd: terminal view failed, continuing without UI: ${errorText(error)}`);
     terminal.stop();
     terminal = new SubagentTerminal({ service: service as SubagentWorkerService, enabled: false });
     terminal.start();
@@ -242,7 +242,7 @@ if (invokedDirectly) {
       if (code !== 0) process.exitCode = code;
     },
     (error) => {
-      logErr(`pi-subagents-mcp: unexpected error: ${errorText(error)}`);
+      logErr(`swarmd: unexpected error: ${errorText(error)}`);
       process.exitCode = 1;
     },
   );
