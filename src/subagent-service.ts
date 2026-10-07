@@ -79,7 +79,7 @@ interface WorkerRecord {
   contextPercent?: number;
   result?: string;
   error?: string;
-  transcriptPath: string;
+  transcriptPath?: string;
   events: SubagentTranscriptEvent[];
   cursor: number;
   session?: PiSessionHandle;
@@ -92,7 +92,7 @@ interface WorkerRecord {
   runBuffer: string;
   genText: string;
   initialText: string;
-  file: FileHandle;
+  file?: FileHandle;
   writeChain: Promise<void>;
   disposed: boolean;
 }
@@ -196,14 +196,17 @@ export async function createSubagentService(
     if (worker.events.length > MAX_MEMORY_EVENTS) {
       worker.events.splice(0, worker.events.length - MAX_MEMORY_EVENTS);
     }
-    const disk = JSON.stringify({ cursor: entry.cursor, timestamp, type, data });
-    worker.writeChain = worker.writeChain.then(async () => {
-      try {
-        await worker.file.appendFile(`${disk}\n`);
-      } catch (error) {
-        console.error(`subagent transcript append failed for ${worker.id}: ${(error as Error).message}`);
-      }
-    });
+    const file = worker.file;
+    if (file) {
+      const disk = JSON.stringify({ cursor: entry.cursor, timestamp, type, data });
+      worker.writeChain = worker.writeChain.then(async () => {
+        try {
+          await file.appendFile(`${disk}\n`);
+        } catch (error) {
+          console.error(`subagent transcript append failed for ${worker.id}: ${(error as Error).message}`);
+        }
+      });
+    }
     notify();
   }
 
@@ -228,7 +231,8 @@ export async function createSubagentService(
       ...(worker.contextPercent !== undefined ? { contextPercent: worker.contextPercent } : {}),
       ...(worker.result !== undefined ? { result: worker.result } : {}),
       ...(worker.error !== undefined ? { error: worker.error } : {}),
-      transcriptPath: worker.transcriptPath,
+      initialPrompt: worker.initialText,
+      ...(worker.transcriptPath ? { transcriptPath: worker.transcriptPath } : {}),
     };
   }
 
@@ -516,9 +520,10 @@ export async function createSubagentService(
     return id;
   }
 
-  async function openTranscript(transcriptDir: string): Promise<{ id: string; transcriptPath: string; file: FileHandle }> {
+  async function allocateTranscript(transcriptDir: string | undefined): Promise<{ id: string; transcriptPath?: string; file?: FileHandle }> {
     for (let attempt = 0; attempt < 5; attempt++) {
       const id = newId();
+      if (!transcriptDir) return { id };
       const transcriptPath = join(transcriptDir, `${id}.jsonl`);
       try {
         const file = await open(transcriptPath, "wx", 0o600);
@@ -549,10 +554,13 @@ export async function createSubagentService(
       }
       worker.session = undefined;
       worker.disposed = true;
-      try {
-        await worker.writeChain;
-      } finally {
-        await worker.file.close().catch(() => {});
+      if (worker.file) {
+        try {
+          await worker.writeChain;
+        } finally {
+          await worker.file.close().catch(() => {});
+          worker.file = undefined;
+        }
       }
       workers.delete(worker.id);
     }
@@ -606,10 +614,8 @@ export async function createSubagentService(
           const requested: SubagentThinkingLevel =
             task.thinking ??
             (agent.defaultThinking ? clampThinkingFor(model, agent.defaultThinking) : pickDefaultThinking(levels));
-          const opened = await openTranscript(config.transcriptDir);
+          const opened = await allocateTranscript(config.transcripts === "disk" ? config.transcriptDir : undefined);
           const id = opened.id;
-          const transcriptPath = opened.transcriptPath;
-          const file = opened.file;
           const worker: WorkerRecord = {
             id,
             agent,
@@ -625,7 +631,7 @@ export async function createSubagentService(
             activeTools: new Map(),
             createdAt: new Date().toISOString(),
             usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-            transcriptPath,
+            ...(opened.transcriptPath ? { transcriptPath: opened.transcriptPath } : {}),
             events: [],
             cursor: 0,
             systemPrompt: buildSystemPrompt(commonPrompt, agent, cwd),
@@ -635,7 +641,7 @@ export async function createSubagentService(
             runBuffer: "",
             genText: "",
             initialText: task.prompt,
-            file,
+            ...(opened.file ? { file: opened.file } : {}),
             writeChain: Promise.resolve(),
             disposed: false,
           };
@@ -947,10 +953,13 @@ export async function createSubagentService(
         }
         worker.session = undefined;
         worker.disposed = true;
-        try {
-          await worker.writeChain;
-        } finally {
-          await worker.file.close().catch(() => {});
+        if (worker.file) {
+          try {
+            await worker.writeChain;
+          } finally {
+            await worker.file.close().catch(() => {});
+            worker.file = undefined;
+          }
         }
         workers.delete(worker.id);
       }

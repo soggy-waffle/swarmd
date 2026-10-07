@@ -78,7 +78,7 @@ test("real Pi SDK sessions run through HTTP MCP with global-only resources and r
     await writeFile(join(cwd, ".pi", "extensions", "unsafe-project.ts"), `import { writeFileSync } from 'node:fs'; export default function() { writeFileSync(${JSON.stringify(sentinel)}, 'bad'); }\n`);
     const configPath = join(directory, "config.json");
     await writeFile(configPath, JSON.stringify({ agentsDir, skillsDir, piAgentDir, workerInstructionsFile,
-      transcriptDir: join(directory, "transcripts"), excludeExtensions: ["pi-subagents", "mcp"], maxConcurrent: 2, port: 8787,
+      transcripts: "disk", transcriptDir: join(directory, "transcripts"), excludeExtensions: ["pi-subagents", "mcp"], maxConcurrent: 2, port: 8787,
     }));
     const config = await loadSubagentConfig(configPath);
     service = await createSubagentService(config);
@@ -118,6 +118,7 @@ test("real Pi SDK sessions run through HTTP MCP with global-only resources and r
     assert.match(JSON.stringify(releasePayload), /"success":true/);
     assert.equal(service.listSubagents().length, 0);
     assert.equal(await readFile(shutdownSentinel, "utf8"), "shutdown\n", "Release must await extension shutdown before returning");
+    assert.ok(worker.transcriptPath, "disk mode must report a transcript path");
     const transcript = await readFile(worker.transcriptPath, "utf8");
     assert.match(transcript, /LOCAL_RESULT_1/);
     assert.match(transcript, /LOCAL_RESULT_2/);

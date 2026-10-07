@@ -1,3 +1,9 @@
+import {
+  cpuPercentBetween,
+  formatMetrics,
+  sampleProcessTree,
+  type ProcessTreeSample,
+} from "./subagent-metrics.js";
 import type {
   SubagentSnapshot,
   SubagentTranscriptEvent,
@@ -7,6 +13,7 @@ import type {
 const RENDER_INTERVAL_MS = 100;
 const TICK_INTERVAL_MS = 1000;
 const ESCAPE_FLUSH_MS = 40;
+const METRICS_INTERVAL_MS = 5000;
 
 const KNOWN_SEQUENCES = ["\x1b[A", "\x1b[B", "\x1b[5~", "\x1b[6~"] as const;
 
@@ -252,6 +259,10 @@ export class SubagentTerminal {
   private tickTimer: NodeJS.Timeout | undefined;
   private renderTimer: NodeJS.Timeout | undefined;
   private escapeTimer: NodeJS.Timeout | undefined;
+  private metricsTimer: NodeJS.Timeout | undefined;
+  private metricsText = "";
+  private lastMetrics: ProcessTreeSample | undefined;
+  private lastMetricsAt: number | undefined;
   private renderScheduled = false;
   private dirty = false;
   private transcriptDirty = false;
@@ -307,6 +318,9 @@ export class SubagentTerminal {
     this.tickTimer = setInterval(() => this.onTick(), TICK_INTERVAL_MS);
     this.tickTimer.unref();
     this.dirty = true;
+    this.refreshMetrics();
+    this.metricsTimer = setInterval(() => this.refreshMetrics(), METRICS_INTERVAL_MS);
+    this.metricsTimer.unref();
     this.transcriptDirty = true;
     this.paint();
   }
@@ -326,6 +340,8 @@ export class SubagentTerminal {
     this.renderScheduled = false;
     if (this.tickTimer) clearInterval(this.tickTimer);
     this.tickTimer = undefined;
+    if (this.metricsTimer) clearInterval(this.metricsTimer);
+    this.metricsTimer = undefined;
     if (this.enabled) {
       this.input.off("data", this.onInput);
       if (this.rawMode && typeof this.input.setRawMode === "function") this.input.setRawMode(false);
@@ -368,6 +384,26 @@ export class SubagentTerminal {
       this.logLifecycle();
       return;
     }
+    this.scheduleRender();
+  }
+
+  private refreshMetrics(): void {
+    if (process.platform !== "linux") return;
+    let sample: ProcessTreeSample;
+    try {
+      sample = sampleProcessTree();
+    } catch {
+      return;
+    }
+    const now = Date.now();
+    const cpuPercent =
+      this.lastMetrics && this.lastMetricsAt !== undefined
+        ? cpuPercentBetween(this.lastMetrics, sample, now - this.lastMetricsAt)
+        : undefined;
+    this.lastMetrics = sample;
+    this.lastMetricsAt = now;
+    this.metricsText = formatMetrics(sample, cpuPercent);
+    this.dirty = true;
     this.scheduleRender();
   }
 
@@ -464,7 +500,8 @@ export class SubagentTerminal {
   private buildListLines(width: number, content: number, now: number): string[] {
     const lines: string[] = [];
     const running = this.workers.filter((w) => w.state === "running" || w.state === "starting").length;
-    lines.push(truncateLine(`${this.title}  ${this.workers.length} workers · ${running} active`, width));
+    const metrics = this.metricsText ? ` · ${this.metricsText}` : "";
+    lines.push(truncateLine(`${this.title}  ${this.workers.length} workers · ${running} active${metrics}`, width));
     const selected = this.selectedWorker();
     lines.push(selected ? truncateLine(workerSummary(selected, now), width) : "");
     lines.push(truncateLine(formatTableHeader(), width));
@@ -508,7 +545,10 @@ export class SubagentTerminal {
       return lines;
     }
     lines.push(truncateLine(workerSummary(worker, now), width));
-    const viewHeight = Math.max(1, content - 1);
+    const pinHeight = clamp(Math.floor((content - 1) / 3), 2, 8);
+    const pinned = this.pinnedPromptLines(worker, width, pinHeight);
+    lines.push(...pinned);
+    const viewHeight = Math.max(1, content - 1 - pinned.length);
     const events = this.transcriptFor(worker.id).events;
     const wrapped: string[] = [];
     for (const event of events) for (const line of formatEventLines(event, width)) wrapped.push(line);
@@ -522,6 +562,14 @@ export class SubagentTerminal {
       lines.push(line ? truncateLine(line, width) : "");
     }
     return lines.slice(0, content);
+  }
+
+  private pinnedPromptLines(worker: SubagentSnapshot, width: number, maxLines: number): string[] {
+    const wrapped = wrapText(`task: ${sanitize(worker.initialPrompt) || "(empty)"}`, Math.max(8, width - 2));
+    const window = wrapped.slice(0, maxLines);
+    const out = window.map((line) => truncateLine(`  ${line}`, width));
+    if (wrapped.length > maxLines) out[maxLines - 1] = truncateLine(`  … ${wrapped.length - maxLines + 1} more prompt lines`, width);
+    return out;
   }
 
   private moveSelection(delta: number): void {

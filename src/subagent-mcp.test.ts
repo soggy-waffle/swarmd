@@ -49,6 +49,7 @@ function makeSnapshot(overrides: Partial<SubagentSnapshot> = {}): SubagentSnapsh
     usage: { input: 100, output: 20, cacheRead: 5, cacheWrite: 0 },
     transcriptPath: "/tmp/w1.jsonl",
     result: "SECRET_RESULT",
+    initialPrompt: "SECRET_PROMPT",
     ...overrides,
   };
 }

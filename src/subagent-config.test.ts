@@ -29,6 +29,7 @@ test("defaults apply with explicit skills/agent/instruction roots", async () => 
     assert.equal(config.skillsDir, dirs.skillsDir);
     assert.equal(config.piAgentDir, dirs.piAgentDir);
     assert.ok(config.transcriptDir.endsWith("transcripts"));
+    assert.equal(config.transcripts, "memory");
   } finally {
     await rm(base, { recursive: true, force: true });
   }

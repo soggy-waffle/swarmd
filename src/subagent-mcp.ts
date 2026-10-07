@@ -82,19 +82,19 @@ function isInitializeRequest(body: unknown): boolean {
   return !!body && typeof body === "object" && (body as { method?: unknown }).method === "initialize";
 }
 
-function stripResult(snapshot: SubagentSnapshot): Omit<SubagentSnapshot, "result"> {
-  const { result: _result, ...rest } = snapshot;
+function stripResult(snapshot: SubagentSnapshot): Omit<SubagentSnapshot, "result" | "initialPrompt"> {
+  const { result: _result, initialPrompt: _initialPrompt, ...rest } = snapshot;
   return rest;
 }
 
 function stripOutcome(outcome: SubagentOperationOutcome): Omit<SubagentOperationOutcome, "worker"> & {
-  worker?: Omit<SubagentSnapshot, "result">;
+  worker?: Omit<SubagentSnapshot, "result" | "initialPrompt">;
 } {
   return outcome.worker ? { ...outcome, worker: stripResult(outcome.worker) } : outcome;
 }
 
 function stripSpawnOutcome(outcome: SubagentSpawnOutcome): Omit<SubagentSpawnOutcome, "worker"> & {
-  worker?: Omit<SubagentSnapshot, "result">;
+  worker?: Omit<SubagentSnapshot, "result" | "initialPrompt">;
 } {
   return outcome.worker ? { ...outcome, worker: stripResult(outcome.worker) } : outcome;
 }

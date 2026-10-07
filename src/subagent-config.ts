@@ -18,6 +18,7 @@ const KNOWN_FIELDS = new Set([
   "port",
   "maxConcurrent",
   "transcriptDir",
+  "transcripts",
 ]);
 
 const DEFAULT_EXCLUDE = ["pi-subagents", "mcp"];
@@ -151,6 +152,10 @@ export async function loadSubagentConfig(
     readString(raw, file, "transcriptDir") ?? join(fileDir, "transcripts"),
     fileDir,
   );
+  const transcripts = readString(raw, file, "transcripts") ?? "memory";
+  if (transcripts !== "memory" && transcripts !== "disk") {
+    throw configError(file, `"transcripts" must be "memory" or "disk" (received "${transcripts}")`);
+  }
 
   await mustBeDir(
     agentsDir,
@@ -177,7 +182,7 @@ export async function loadSubagentConfig(
     `Create the shared worker instructions file, or point "workerInstructionsFile" at it in ${file}`,
   );
 
-  await mkdir(transcriptDir, { recursive: true, mode: 0o700 });
+  if (transcripts === "disk") await mkdir(transcriptDir, { recursive: true, mode: 0o700 });
 
   return {
     agentsDir,
@@ -188,5 +193,6 @@ export async function loadSubagentConfig(
     port: overrides?.port ?? readPort(raw, file, "port") ?? 8787,
     maxConcurrent: overrides?.maxConcurrent ?? readMaxConcurrent(raw, file, "maxConcurrent") ?? 10,
     transcriptDir,
+    transcripts,
   };
 }

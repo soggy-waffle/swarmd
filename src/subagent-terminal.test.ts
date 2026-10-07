@@ -34,6 +34,7 @@ function makeSnapshot(overrides: Partial<SubagentSnapshot> = {}): SubagentSnapsh
     usage: { input: 1200, output: 800, cacheRead: 3000, cacheWrite: 0 },
     contextPercent: 42,
     transcriptPath: "/tmp/w1.jsonl",
+    initialPrompt: "Do the benchmark task and report findings.",
     ...overrides,
   };
 }
@@ -153,6 +154,19 @@ test("renders multiline transcript output instead of one truncated line", () => 
   assert.ok(lines.length > 2);
   assert.equal(lines[0], "#3 tool_result");
   assert.equal(lines[1].startsWith("  "), true);
+});
+
+test("detail view pins the initial task prompt above streamed output", () => {
+  const service = fakeService([makeSnapshot({ initialPrompt: "PINNED_TASK_INSTRUCTION with more detail" })]);
+  const { input, terminal } = startTerminal(service, () => {});
+  try {
+    input.emit("data", "\r");
+    const lines = terminal.buildLines(120, 24);
+    assert.match(lines[1], /PINNED_TASK_INSTRUCTION/);
+    assert.ok(lines.slice(1).every((line) => !line.includes("\x1b")));
+  } finally {
+    terminal.stop();
+  }
 });
 
 test("supports j/k selection, enter detail, escape return, and Ctrl-C quit", async () => {
@@ -286,6 +300,15 @@ test("Ctrl-C still exits while quit confirmation is open", () => {
     input.emit("data", "q");
     input.emit("data", "\x03");
     assert.equal(quit, true);
+  } finally {
+    terminal.stop();
+  }
+});
+
+test("header shows live PSS and CPU metrics when sampled", () => {
+  const { terminal } = startTerminal(fakeService([makeSnapshot()]), () => {});
+  try {
+    assert.match(terminal.buildLines(200, 24)[0], /pss \d+ MiB · cpu (\d+%|-)/);
   } finally {
     terminal.stop();
   }

@@ -8,6 +8,6 @@
     "mcp"
   ],
   "port": 8787,
-  "maxConcurrent": 10,
+  "maxConcurrent": 20,
   "transcriptDir": "~/.config/pi-subagents-mcp/transcripts"
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -141,6 +141,7 @@ async function makeFixture(options: {
   maxConcurrent?: number;
   levels?: SubagentThinkingLevel[];
   factory?: () => PiSessionFactory;
+  transcripts?: "memory" | "disk";
 }): Promise<Fixture> {
   const base = await mkdtemp(join(tmpdir(), "pi-subagents-svc-"));
   const agentsDir = join(base, "agents");
@@ -190,6 +191,7 @@ async function makeFixture(options: {
     excludeExtensions: [],
     port: 8787,
     maxConcurrent: options.maxConcurrent ?? 10,
+    transcripts: options.transcripts ?? "memory",
     transcriptDir,
   };
   const modelRuntime = await ModelRuntime.create({
@@ -733,7 +735,7 @@ test("concurrent same-name tools tracked by call id with sane activity", async (
 });
 
 test("transcript files are owner-only JSONL with full generation history", async () => {
-  const fixture = await makeFixture({});
+  const fixture = await makeFixture({ transcripts: "disk" });
   try {
     const [spawned] = await fixture.service.spawnSubagents([{ agent: "worker", prompt: "ONE", cwd: cwd(fixture.base) }]);
     const id = spawned.worker?.id ?? "";
@@ -741,10 +743,12 @@ test("transcript files are owner-only JSONL with full generation history", async
     await fixture.service.sendSubagent(id, "TWO");
     await fixture.service.waitSubagents([id], "all", 5);
     const worker = fixture.service.listSubagents()[0];
-    assert.equal((await stat(worker.transcriptPath)).mode & 0o077, 0);
+    const transcriptPath = worker.transcriptPath;
+    assert.ok(transcriptPath, "disk mode must report a transcript path");
+    assert.equal((await stat(transcriptPath)).mode & 0o077, 0);
     let events: Array<{ type: string; data: unknown }> = [];
     for (let attempt = 0; attempt < 100; attempt++) {
-      const text = await readFile(worker.transcriptPath, "utf8").catch(() => "");
+      const text = await readFile(transcriptPath, "utf8").catch(() => "");
       events = text
         .split("\n")
         .filter((line) => line.trim().length > 0)
@@ -756,6 +760,26 @@ test("transcript files are owner-only JSONL with full generation history", async
     assert.ok(events.length >= 6);
     assert.ok(events.some((entry) => entry.type === "run_end" && JSON.stringify(entry.data).includes("result:ONE")));
     assert.ok(events.some((entry) => entry.type === "run_end" && JSON.stringify(entry.data).includes("result:TWO")));
+  } finally {
+    await dispose(fixture);
+  }
+});
+
+test("memory mode keeps transcripts in RAM with no file writes", async () => {
+  const fixture = await makeFixture({});
+  try {
+    const [spawned] = await fixture.service.spawnSubagents([{ agent: "worker", prompt: "MEMORY_ONLY", cwd: cwd(fixture.base) }]);
+    const id = spawned.worker?.id ?? "";
+    await fixture.service.waitSubagents([id], "all", 5);
+    assert.equal(spawned.worker?.transcriptPath, undefined);
+    assert.equal(spawned.worker?.initialPrompt, "MEMORY_ONLY");
+    const worker = fixture.service.listSubagents()[0];
+    assert.equal(worker.transcriptPath, undefined);
+    assert.deepEqual(await readdir(fixture.config.transcriptDir), []);
+    const inspection = fixture.service.inspectSubagent(id, 0, 500);
+    assert.ok(inspection.events.length > 0);
+    await fixture.service.releaseSubagents([id], true);
+    assert.deepEqual(await readdir(fixture.config.transcriptDir), []);
   } finally {
     await dispose(fixture);
   }

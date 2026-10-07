@@ -28,7 +28,7 @@ The service binds to localhost. Clients connected to the service share its worke
 
 ## Terminal controls
 
-Use `j`/`k` or the arrow keys to select a worker. Press Enter to open its output and Escape to return to the worker list. In the output view, `j`/`k` scroll and `g`/`G` jump to the start or end. Press `q` to request shutdown, then `y` to confirm. Press `n`, Enter, or Escape to cancel. Ctrl-C still shuts down immediately. The view shows turns, tool activity, model/thinking, elapsed time, token usage, and context usage where available.
+Use `j`/`k` or the arrow keys to select a worker. Press Enter to open its output and Escape to return to the worker list. In the output view, `j`/`k` scroll and `g`/`G` jump to the start or end, and the task prompt given by the MCP caller stays pinned at the top. Press `q` to request shutdown, then `y` to confirm. Press `n`, Enter, or Escape to cancel. Ctrl-C still shuts down immediately. The view shows turns, tool activity, model/thinking, elapsed time, token usage, and context usage where available. The header shows live memory and CPU for the service and its child processes, refreshed every five seconds: `pss` is proportional set size so shared pages count once, and `cpu` is whole-tree process CPU where 100% is one busy core. Both need Linux `/proc` and are omitted elsewhere.
 
 ## Global configuration
 
@@ -42,10 +42,13 @@ Default configuration: `~/.config/pi-subagents-mcp/config.json`. The default loc
   "piAgentDir": "~/.config/pi",
   "excludeExtensions": ["pi-subagents", "mcp"],
   "port": 8787,
-  "maxConcurrent": 10,
+  "maxConcurrent": 20,
+  "transcripts": "memory",
   "transcriptDir": "~/.config/pi-subagents-mcp/transcripts"
 }
 ```
+
+`transcripts` sets where streamed events are kept. `"memory"` (the default) keeps them only inside the service process and writes nothing to disk. `"disk"` appends one JSONL file per worker under `transcriptDir` for debugging. Memory mode removes per-chunk file I/O; the live terminal view and `inspect_subagent` work in both modes.
 
 `piAgentDir` selects installed Pi resources, provider configuration, and credentials. Keep credentials out of this repository. `agentsDir` and `skillsDir` are separate configurable directories, and can point to shared directories or symlinks.
 
@@ -148,7 +151,7 @@ Waiting is driven by service events, not polling. Cancelling or timing out a wai
 
 Ten tasks can start or run at once by default. More tasks wait in a queue. Idle workers retain their conversation in memory until released. SDK sessions use `SessionManager.inMemory`, so they do not create Pi session files or appear in `pi -r`. Service transcript logs are stored separately. A stopped worker retains partial output and can receive another task. A new task uses a new generation number so results from an earlier task do not masquerade as current results.
 
-`stop_subagents` cancels work without undoing edits. `release_subagents` rejects active workers unless `force: true` is supplied. Releasing frees the SDK session; transcripts remain on disk. Workers do not survive service restart. Transcript files can contain sensitive task content and tool output; manage their retention yourself.
+`stop_subagents` cancels work without undoing edits. `release_subagents` rejects active workers unless `force: true` is supplied. Releasing frees the SDK session. In disk mode, transcript files remain; in memory mode the transcript is gone. Workers do not survive service restart. In disk mode, transcript files can contain sensitive task content and tool output; manage their retention yourself.
 
 Workers share the working directory. There are no automatic file locks or Git worktrees. Divide write tasks by file ownership to avoid conflicts.
 

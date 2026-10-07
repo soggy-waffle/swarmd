@@ -1,6 +1,8 @@
 export type SubagentThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 export type SubagentState = "queued" | "starting" | "running" | "idle" | "stopped" | "failed";
 
+export type SubagentTranscriptMode = "memory" | "disk";
+
 export interface SubagentServiceConfig {
   agentsDir: string;
   skillsDir: string;
@@ -10,6 +12,7 @@ export interface SubagentServiceConfig {
   port: number;
   maxConcurrent: number;
   transcriptDir: string;
+  transcripts: SubagentTranscriptMode;
 }
 
 export interface SubagentDefinition {
@@ -56,7 +59,8 @@ export interface SubagentSnapshot {
   contextPercent?: number;
   result?: string;
   error?: string;
-  transcriptPath: string;
+  transcriptPath?: string;
+  initialPrompt: string;
 }
 
 export interface SubagentTranscriptEvent {
