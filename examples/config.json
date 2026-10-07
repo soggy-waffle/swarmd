@@ -1,0 +1,13 @@
+{
+  "agentsDir": "~/.config/pi-subagents-mcp/agents",
+  "skillsDir": "~/.config/pi/skills",
+  "workerInstructionsFile": "~/.config/pi-subagents-mcp/SUBAGENT_INSTRUCTIONS.md",
+  "piAgentDir": "~/.config/pi",
+  "excludeExtensions": [
+    "pi-subagents",
+    "mcp"
+  ],
+  "port": 8787,
+  "maxConcurrent": 10,
+  "transcriptDir": "~/.config/pi-subagents-mcp/transcripts"
+}

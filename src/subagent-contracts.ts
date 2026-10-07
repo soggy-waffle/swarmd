@@ -70,6 +70,8 @@ export interface SubagentInspection {
   worker: SubagentSnapshot;
   events: SubagentTranscriptEvent[];
   nextCursor: number;
+  firstAvailableCursor?: number;
+  historyTruncated?: boolean;
 }
 
 export interface SubagentOperationOutcome {

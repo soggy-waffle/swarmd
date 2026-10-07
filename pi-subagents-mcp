@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+self=$0
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in
+    /*) self=$link ;;
+    *) self=$(dirname "$self")/$link ;;
+  esac
+done
+dir=$(CDPATH= cd -- "$(dirname -- "$self")" && pwd -P)
+entry=$dir/dist/subagent-cli.js
+
+if [ ! -f "$entry" ]; then
+  echo "pi-subagents-mcp: $entry not found. Build first: bun install && bun run build" >&2
+  exit 1
+fi
+
+exec node "$entry" "$@"
