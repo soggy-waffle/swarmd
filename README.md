@@ -23,9 +23,9 @@ ln -sfn ~/.config/swarmd/swarmd ~/.local/bin/swarmd
 Then copy the templates and edit them:
 
 ```sh
-cp -n ~/.config/swarmd/templates/config.json ~/.config/swarmd/
-cp -n ~/.config/swarmd/templates/SUBAGENT_INSTRUCTIONS.md ~/.config/swarmd/
-cp -n ~/.config/swarmd/templates/agents/*.md ~/.config/swarmd/agents/
+mkdir -p ~/.config/swarmd/agents
+cp -n templates/config.json templates/SUBAGENT_INSTRUCTIONS.md ~/.config/swarmd/
+cp -n templates/agents/*.md ~/.config/swarmd/agents/
 ```
 
 Adjust `model` lines in the agent files to models you have credentials for.
@@ -52,7 +52,6 @@ The service binds to localhost. Every connected client can control every worker,
   config.json                   service configuration
   agents/*.md                   worker definitions
   SUBAGENT_INSTRUCTIONS.md      instructions shared by all workers
-  templates/                    starting-point copies
 ~/.local/bin/swarmd             launcher
 ~/.agents/skills/               skills, in the Agent Skills standard location
 ```
